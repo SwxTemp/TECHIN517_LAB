@@ -1,0 +1,36 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<!-- <link rel="import" href="../bower_components/ros-websocket/ros-websocket.html"> -->
+
+<dom-module id="web-teleop-app">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+    <h2>b [[prop1]]!</h2>
+  </template>
+
+  <script>
+    /**
+     * @customElement
+     * @polymer
+     */
+    class WebTeleopApp extends Polymer.Element {
+      static get is() { return 'web-teleop-app'; }
+      static get properties() {
+        return {
+          prop1: {
+            type: String,
+            value: 'web-teleop-app'
+          }
+        };
+      }
+      doSomething() {
+        console.log('Doing something');
+      }
+    }
+
+    window.customElements.define(WebTeleopApp.is, WebTeleopApp);
+  </script>
+</dom-module>
