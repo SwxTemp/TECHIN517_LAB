@@ -1,0 +1,432 @@
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/ros-websocket/ros-websocket.html">
+<link rel="import" href="../bower_components/ros-topic/ros-topic.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-slider/paper-slider.html">
+<link rel="import" href="../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../bower_components/ros-service/ros-service.html">
+
+<dom-module id="web-teleop-app">
+    <template>
+        <style is="custom-style" include="iron-flex"></style>
+        <style>
+            :host {
+                display: block;
+            }
+
+            paper-slider {
+                --paper-slider-input: {
+                    width: 100px;
+                }
+            }
+
+            paper-button {
+                background-color: #eee;
+                user-select: none;
+            }
+
+            #driving {
+                display: inline-block;
+            }
+
+            #camera img {
+                width: 90%;
+                height: auto;
+            }
+        </style>
+        <ros-websocket auto
+            ros="{{ros}}"
+            url="{{url}}" 
+            on-connection="_handleConnection" 
+            on-close="_handleClose"
+            on-error="_handleError"></ros-websocket>
+        <ros-topic auto ros="{{ros}}" 
+            topic="joint_state_republisher/torso_lift_joint" 
+            msg-type="std_msgs/Float64"
+            last-message="{{torsoHeight}}" 
+            on-message="_handleTorsoHeight"></ros-topic>
+        <ros-topic auto ros="{{ros}}" 
+            topic="joint_state_republisher/head" 
+            msg-type="std_msgs/Float64MultiArray"
+            last-message="{{headVals}}" 
+            on-message="_handleHead"></ros-topic>
+        <ros-topic auto ros="{{ros}}" 
+            topic="joint_state_republisher/arm" 
+            msg-type="std_msgs/Float64MultiArray"
+            last-message="{{armVals}}" 
+            on-message="_handleArm"></ros-topic>
+        <ros-topic 
+            id="baseTopic" 
+            ros="{{ros}}" 
+            topic="cmd_vel" 
+            msg-type="geometry_msgs/Twist"></ros-topic>
+        
+        <ros-service 
+            id="torsoService" 
+            on-response="_handleTorsoSuccess" 
+            on-fail="_handleTorsoError"
+            name="/web_teleop/set_torso" 
+            ros="{{ros}}" 
+            service-type="web_teleop/SetTorso"></ros-service>
+        <ros-service 
+            id="headService" 
+            on-response="_handleHeadSuccess" 
+            on-fail="_handleHeadError"
+            name="/web_teleop/set_head" 
+            ros="{{ros}}" 
+            service-type="web_teleop/SetHead"></ros-service>
+        <ros-service 
+            id="gripperService" 
+            on-response="_handleGripperSuccess" 
+            on-fail="_handleGripperError"
+            name="/web_teleop/gripper" 
+            ros="{{ros}}" 
+            service-type="web_teleop/Gripper"></ros-service>
+        <ros-service 
+            id="armService" 
+            on-response="_handleArmSuccess" 
+            on-fail="_handleArmError" 
+            name="/web_teleop/arm"
+            ros="{{ros}}" 
+            service-type="web_teleop/Arm"></ros-service>
+
+
+        <h1>Fetch teleop Test</h1>
+        <div style="display: flex; height: 100%;">
+            <div style="width: 40%; margin: auto;">
+                [[status]]
+                <div id="camera" style="height: 100%;">
+                    <img src="//localhost:8000/stream?topic=/head_camera/rgb/image_raw"></img>
+                </div>
+                <p></p>
+
+            </div>
+    
+            <div style="width: 60%;">
+                <div class="layout horizontal center">
+                    <h4>Torsor Controller ([[_round2(torsoHeight.data, 0.001, 2)]]m):</h4>
+                    <paper-slider min="0" max="0.4" step="0.01" editable value="{{desiredTorsoHeight}}"></paper-slider>
+                    <paper-button on-tap="_setTorso">Set torso</paper-button>
+                </div>
+                <div>
+                    <h4>Head Controller</h4>
+                    <div class="layout horizontal center">
+                        <h5>Head Pan Controller ([[_round2(headVals.data.0, 0.001, 2)]]m):</h4>
+                        <paper-slider min="-1.57" max="1.57" step="0.01" editable value="{{desiredHeadPan}}"></paper-slider>
+                    </div>
+
+                    <div class="layout horizontal center">
+                        <h5>Head Tilt Controller ([[_round2(headVals.data.1, 0.001, 2)]]m)::</h4>
+                        <paper-slider min="-1.57" max="1.57" step="0.01" editable value="{{desiredHeadTilt}}"></paper-slider>
+                    </div>
+                    <paper-button on-tap="_setHead">Move Head</paper-button>
+                </div>
+                
+                <div>
+                    <h4>Arm Controller:</h4>
+                    <div class="layout horizontal center">
+                        <h5>Shoulder Pan ([[_round2(armVals.data.0, 0.001, 2)]]):</h5>
+                        <paper-slider min="-1.605" max="1.605" step="0.01" editable value="{{desiredShoulderPan}}">
+                        </paper-slider>
+                        <h5> &nbsp&nbsp Shoulder Lift ([[_round2(armVals.data.1, 0.001, 2)]]):</h5>
+                        <paper-slider min="-1.221" max="1.518" step="0.01" editable value="{{desiredShoulderLift}}">
+                        </paper-slider>
+                    </div>
+                    <div class="layout horizontal center">
+                        <h5>Uperarm Roll ([[_round2(armVals.data.2, 0.001, 2)]]):</h5>
+                        <paper-slider min="-10" max="10" step="0.01" editable value="{{desiredUpperarmRoll}}"></paper-slider>
+                        <h5> &nbsp&nbsp Elbow Flex ([[_round2(armVals.data.3, 0.001, 2)]]):</h5>
+                        <paper-slider min="-2.251" max="2.251" step="0.01" editable value="{{desiredElbowFlex}}"></paper-slider>
+                        <h5>&nbsp&nbsp Forearm Roll ([[_round2(armVals.data.4, 0.001, 2)]]):</h5>
+                        <paper-slider min="-10" max="10" step="0.01" editable value="{{desiredForearmRoll}}"></paper-slider>
+                    </div>
+                    <div class="layout horizontal center">
+                        <h5>Wrist Flex ([[_round2(armVals.data.5, 0.001, 2)]]):</h5>
+                        <paper-slider min="-2.181" max="2.181" step="0.01" editable value="{{desiredWristFlex}}"></paper-slider>
+                        <h5> &nbsp&nbsp Wrist Roll ([[_round2(armVals.data.6, 0.001, 2)]]):</h5>
+                        <paper-slider min="-10" max="10" step="0.01" editable value="{{desiredWristRoll}}"></paper-slider>
+                    </div>
+                    <paper-button on-tap="_moveArm">Move Arm</paper-button>
+                </div>
+                <div>
+                    <h4>Motor Controller:</h4>
+                    <div style="display: flex; justify-content: space-evenly;">
+                        <div id="driving" class="layout vertical">
+                            <div class="layout horizontal">
+                                <div class="flex"></div>
+                                <paper-button on-down="_startForward" on-up="_endBaseCommand">Forward</paper-button>
+                                <div class="flex"></div>
+                            </div>
+                            <div class="layout horizontal">
+                                <paper-button on-down="_turnLeft" on-up="_endBaseCommand">Left</paper-button>
+                                <paper-button on-down="_reverse" on-up="_endBaseCommand">Back</paper-button>
+                                <paper-button on-down="_turnRight" on-up="_endBaseCommand">Right</paper-button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="layout horizontal">
+                                <h5>Linear Speed:</h5>
+                                <paper-slider min="0" max="1" step="0.01" editable value="{{linearSpeed}}"></paper-slider>
+                            </div>
+                            <div class="layout horizontal">
+                                <h5>Angular Speed:</h5>
+                                <paper-slider min="0" max="1.5" step="0.01" editable value="{{angularSpeed}}"></paper-slider>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="layout horizontal center">
+                    <h4>Grab Controller ([[grabbingStatus]]):</h4>
+                    <paper-button on-tap="_gripperGrab">Grab</paper-button>
+                    <paper-button on-tap="_gripperRelease">Release</paper-button>
+                </div>
+                <div style="height:50px"></div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+
+        /**
+         * @customElement
+         * @polymer
+         */
+        class WebTeleopApp extends Polymer.Element {
+            static get is() {return 'web-teleop-app'; }
+            static get properties() {
+                return {};
+            }
+            _handleConnection() {
+                this.status = 'Connected to the websocket server.';
+                // console.log(this.status);
+            }
+            _handleClose() {
+                this.status = 'Closed connection to the websocket server.';
+                // console.log(this.status);
+            }
+            _handleError() {
+                this.status = 'Error connecting to the websocket server.';
+                // console.log(this.status);
+            }
+            _handleTorsoHeight(evt) {
+                var msg = evt.detail;
+                // console.log(msg);
+            }
+            _handleHead(evt) {
+                var msg = evt.detail;
+                // console.log(msg);
+            }
+            _handleArm(evt) {
+                var msg = evt.detail;
+                // console.log(msg);
+            }
+
+            _handleHeadPan(evt) {
+                var msg = evt.detail;
+                // console.log(msg);
+            }
+
+            _handleHeadTilt(evt) {
+                var msg = evt.detail;
+                // console.log(msg);
+            }
+            _round(val, precision) {
+                return (Math.round(val / precision) * precision);
+            }
+            _round2(val, precision, decimal) {
+                return (Math.round(val / precision) * precision).toFixed(decimal);
+            }
+            _setTorso() {
+                this.status = 'Setting torso to ' + this.desiredTorsoHeight + ' meters...';
+                this.$.torsoService.call({ height: this.desiredTorsoHeight });
+            }
+            _setHead() {
+                this.status = "Setting head pan to " + this.desiredHeadPan + " and head tilt to " + this.desiredHeadTilt;
+                this.$.headService.call({ pan: this.desiredHeadPan, tilt: this.desiredHeadTilt });
+            }
+            _gripperGrab() {
+                this.status = "Grabbing..."
+                this.grabbingStatus = "Grab"
+                this.$.gripperService.call({ grab: 1.0 })
+            }
+            _gripperRelease() {
+                this.status = "Releasing..."
+                this.grabbingStatus = "Release"
+                this.$.gripperService.call({ grab: 0.0 })
+            }
+            _moveArm() {
+                this.status = "Moving arm..."
+                let request_to_send = {
+                    shoulder_pan: this.desiredShoulderPan,
+                    shoulder_lift: this.desiredShoulderLift,
+                    upperarm_roll: this.desiredUpperarmRoll,
+                    elbow_flex: this.desiredElbowFlex,
+                    forearm_roll: this.desiredForearmRoll,
+                    wrist_flex: this.desiredWristFlex,
+                    wrist_roll: this.desiredWristRoll
+                }
+                this.$.armService.call(request_to_send)
+            }
+            _handleTorsoSuccess() {
+                this.status = 'Set torso to ' + this.desiredTorsoHeight + ' meters.';
+            }
+            _handleTorsoError(evt) {
+                this.status = 'Error: ' + evt.detail;
+            }
+            _startForward(evt) {
+                evt.preventDefault(); // Prevent right-click menu from showing up after long press on mobile
+                this.status = 'Driving forward... at ' + this.linearSpeed;
+                var baseTopic = this.$.baseTopic; // Get <ros-topic>
+                if (this.baseCommand) {
+                    // The timer should not be set at this point, but clear it just in case
+                    clearInterval(this.baseCommand);
+                }
+                let v = this.linearSpeed;
+                this.baseCommand = setInterval(function () {
+                    baseTopic.publish({
+                        linear: {
+                            x: v, // Set positive or negative meters/s to drive
+                            y: 0,
+                            z: 0
+                        },
+                        angular: {
+                            x: 0,
+                            y: 0,
+                            z: 0 // Set rads/s to turn
+                        }
+                    });
+                }, 10); // Run this function every 10ms, or approximately 100 times per second.
+            }
+
+            _reverse(evt) {
+                evt.preventDefault(); // Prevent right-click menu from showing up after long press on mobile
+                this.status = 'Driving backward... at ' + this.linearSpeed;
+                var baseTopic = this.$.baseTopic; // Get <ros-topic>
+                if (this.baseCommand) {
+                    // The timer should not be set at this point, but clear it just in case
+                    clearInterval(this.baseCommand);
+                }
+                let v = this.linearSpeed;
+                this.baseCommand = setInterval(function () {
+                    baseTopic.publish({
+                        linear: {
+                            x: -v, // Set positive or negative meters/s to drive
+                            y: 0,
+                            z: 0
+                        },
+                        angular: {
+                            x: 0,
+                            y: 0,
+                            z: 0 // Set rads/s to turn
+                        }
+                    });
+                }, 10); // Run this function every 10ms, or approximately 100 times per second.
+                //   _driving(this.evt., -0.5, 0, "Driving backward...")
+            }
+
+            _turnLeft(evt) {
+                evt.preventDefault(); // Prevent right-click menu from showing up after long press on mobile
+                this.status = 'Turning left... at ' + this.angularSpeed;
+                var baseTopic = this.$.baseTopic; // Get <ros-topic>
+                if (this.baseCommand) {
+                    // The timer should not be set at this point, but clear it just in case
+                    clearInterval(this.baseCommand);
+                }
+                let theta = this.angularSpeed;
+                this.baseCommand = setInterval(function () {
+                    baseTopic.publish({
+                        linear: {
+                            x: 0, // Set positive or negative meters/s to drive
+                            y: 0,
+                            z: 0
+                        },
+                        angular: {
+                            x: 0,
+                            y: 0,
+                            z: theta // Set rads/s to turn
+                        }
+                    });
+                }, 10); // Run this function every 10ms, or approximately 100 times per second.
+                //   _driving(this.evt., -0.5, 0, "Driving backward...")
+            }
+
+            _turnRight(evt) {
+                evt.preventDefault(); // Prevent right-click menu from showing up after long press on mobile
+                this.status = 'Turning right... at ' + this.angularSpeed;
+                var baseTopic = this.$.baseTopic; // Get <ros-topic>
+                if (this.baseCommand) {
+                    // The timer should not be set at this point, but clear it just in case
+                    clearInterval(this.baseCommand);
+                }
+                let theta = this.angularSpeed;
+                this.baseCommand = setInterval(function () {
+                    baseTopic.publish({
+                        linear: {
+                            x: 0, // Set positive or negative meters/s to drive
+                            y: 0,
+                            z: 0
+                        },
+                        angular: {
+                            x: 0,
+                            y: 0,
+                            z: -theta // Set rads/s to turn
+                        }
+                    });
+                }, 10); // Run this function every 10ms, or approximately 100 times per second.
+                //   _driving(this.evt., -0.5, 0, "Driving backward...")
+            }
+
+            // _turnHeadRight(evt) {
+            //   evt.preventDefault(); // Prevent right-click menu from showing up after long press on mobile
+            //   this.status = 'Turning head right...';
+            //   var headService = this.$.headService; // Get <ros-topic>
+            //   if (this.baseCommand) {
+            //     // The timer should not be set at this point, but clear it just in case
+            //     clearInterval(this.baseCommand);
+            //   }
+            //   this.baseCommand = setInterval(function() {
+            //     let element1 = document.getElementById("head_pan")
+            //     let curr_pan = parseFloat(element1.textContent)
+            //     // console.log("Hellooooo:" + curr_pan)
+            //     let curr_tilt = parseFloat((document.getElementById("head_tilt")).textContent) + 0.2
+            //     // console.log(curr_tilt)
+            //     headService.call({pan: curr_pan, tilt: curr_tilt});
+            //   }, 10); // Run this function every 10ms, or approximately 100 times per second.
+            // //   _driving(this.evt., -0.5, 0, "Driving backward...")
+            // }
+
+            // _driving(evt, x, turn_angle, label) {
+            //   evt.preventDefault(); // Prevent right-click menu from showing up after long press on mobile
+            //   this.status = label;
+            //   var baseTopic = this.$.baseTopic; // Get <ros-topic>
+            //   if (this.baseCommand) {
+            //     // The timer should not be set at this point, but clear it just in case
+            //     clearInterval(this.baseCommand);
+            //   }
+            //   this.baseCommand = setInterval(function() {
+            //     baseTopic.publish({
+            //       linear: {
+            //         x: x, // Set positive or negative meters/s to drive
+            //         y: 0,
+            //         z: 0
+            //       },
+            //       angular: {
+            //         x: 0,
+            //         y: 0,
+            //         z: turn_angle // Set rads/s to turn
+            //       }
+            //     });
+            //   }, 10); // Run this function every 10ms, or approximately 100 times per second.
+            // }
+
+            _endBaseCommand(evt) {
+                this.status = 'Stopped driving.';
+                clearInterval(this.baseCommand);
+            }
+        }
+
+        window.customElements.define(WebTeleopApp.is, WebTeleopApp);
+    </script>
+</dom-module>

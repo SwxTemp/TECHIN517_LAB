@@ -18,7 +18,6 @@ class Base(object):
         # TODO: Create publisher
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
-        pass
 
     def move(self, linear_speed, angular_speed):
         """Moves the base instantaneously at given linear and angular speeds.
