@@ -11,6 +11,9 @@ PAN_TILT_ACTION_NAME = 'head_controller/follow_joint_trajectory'  # Example for 
 PAN_JOINT = 'head_pan_joint'
 TILT_JOINT = 'head_tilt_joint'
 EYES_JOINT = '/robot/eyes_controller/follow_joint_trajectory'
+
+PAN_TILT_TIME = 2.5  # Adjust the movement duration as needed
+
 class Head(object):
     """Head controls the Fetch's head."""
 
@@ -54,4 +57,3 @@ class Head(object):
         self.pan_tilt_client.send_goal(goal)
         self.pan_tilt_client.wait_for_result()
 
-PAN_TILT_TIME = 2.5  # Adjust the movement duration as needed

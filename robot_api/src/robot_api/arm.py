@@ -26,7 +26,7 @@ class Arm(object):
         point = JointTrajectoryPoint()
         point.positions = arm_joints.values()
         point.time_from_start = rospy.Duration(5.0)  # 5 seconds to reach the target
-       
+        
         goal.trajectory.points.append(point)
        
         rospy.loginfo("Sending goal to the arm controller...")
@@ -38,20 +38,5 @@ class Arm(object):
         else:
             rospy.logerr("Arm movement failed.")
 
-# Example usage
-if __name__ == '__main__':
-    rospy.init_node('arm_move_demo')
-   
-    joints = ArmJoints()
-    joints.set_shoulder_pan(0.0)
-    joints.set_shoulder_lift(-0.2)
-    joints.set_upperarm_roll(0.0)
-    joints.set_elbow_flex(-0.2)
-    joints.set_forearm_roll(0.0)
-    joints.set_wrist_flex(-0.2)
-    joints.set_wrist_roll(0.0)
-   
-    arm = Arm()
-    arm.move_to_joints(joints)
 
 
