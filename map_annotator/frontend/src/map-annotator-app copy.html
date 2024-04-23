@@ -1,0 +1,129 @@
+<!-- <link rel="import" href="../../bower_components/polymer/polymer-element.html">
+
+<dom-module id="map-annotator-app">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+    <h2>Hello [[prop1]]!</h2>
+  </template>
+
+  <script>
+    /**
+     * @customElement
+     * @polymer
+     */
+    class MapAnnotatorApp extends Polymer.Element {
+      static get is() { return 'map-annotator-app'; }
+      static get properties() {
+        return {
+          prop1: {
+            type: String,
+            value: 'map-annotator-app'
+          }
+        };
+      }
+    }
+
+    window.customElements.define(MapAnnotatorApp.is, MapAnnotatorApp);
+  </script>
+</dom-module> -->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Map Annotator Interface</title>
+  <script src="../bower_components/webcomponentsjs/webcomponents-loader.js"></script>
+  <link rel="import" href="../bower_components/polymer/polymer-element.html">
+  <link rel="import" href="../bower_components/ros-web-components/ros-websocket.html">
+  <link rel="import" href="../bower_components/ros-web-components/ros-topic.html">
+  <link rel="import" href="map-annotator-pose.html">
+  <link rel="import" href="../bower_components/paper-button/paper-button.html">
+  <link rel="import" href="../bower_components/ros-rviz/ros-rviz.html">
+  
+
+  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      color: #5a5a5a;
+      font-size: 24px;
+      margin-bottom: 0;
+    }
+    h2 {
+      color: #5a5a5a;
+      font-size: 20px;
+      margin-top: 10px;
+      margin-bottom: 5px;
+    }
+    .status {
+      color: #28a745; /* green color to indicate success */
+      font-size: 16px;
+      margin-top: 0;
+    }
+    .pose-item {
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <dom-module id="map-annotator-app">
+    <template>
+      <!-- Connect to the ROS WebSocket server -->
+      <ros-websocket url="ws://localhost:9090" auto-connect="true" ros="{{ros}}"></ros-websocket>
+
+      <!-- ROS Topic to subscribe to pose names -->
+      <ros-topic auto
+        ros="{{ros}}"
+        topic="map_annotator/pose_names"
+        msg-type="map_annotator/PoseNames"
+        last-message="{{poseNames}}"
+        on-message="_handlePoseNames">
+      </ros-topic>
+
+      
+
+      <h1>Map annotator</h1>
+      <p class="status">Connected to the websocket server.</p >
+      <h2>Poses</h2>
+      <template is="dom-repeat" items="[[poseNames.names]]">
+        <map-annotator-pose ros="[[ros]]" pose-name="[[item]]"></map-annotator-pose>
+      </template>
+
+    </template>
+
+    <script>
+      /**
+       * @customElement
+       * @polymer
+       */
+      class MapAnnotatorApp extends Polymer.Element {
+        static get is() { return 'map-annotator-app'; }
+        static get properties() {
+          return {
+            ros: Object,
+            poseNames: Object
+          };
+        }
+
+        _handlePoseNames(evt) {
+          var msg = evt.detail;
+          console.log('Pose list: ', msg);
+        }
+      }
+
+      window.customElements.define(MapAnnotatorApp.is, MapAnnotatorApp);
+    </script>
+  </dom-module>
+
+  <map-annotator-app></map-annotator-app>
+</body>
+</html>
