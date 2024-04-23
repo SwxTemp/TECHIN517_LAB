@@ -1,0 +1,13 @@
+<launch>
+  <!-- Map annotator server -->
+  <!-- You can pass command-line args to your server using the args attribute below. -->
+  <node pkg="map_annotator" type="server.py" name="map_annotator_server" args="$(env HOME)/our_pose_db_name.db"/>
+
+  <!-- Web prereqs -->
+  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" />
+  <node pkg="tf2_web_republisher" type="tf2_web_republisher" name="tf2_web_republisher" />
+  <node pkg="collada_web_server" type="run_caddy.bash" name="collada_caddy" cwd="node" />
+  <node pkg="map_annotator" type="server.py" name="interactive_marker_server" output="screen"/>
+  <node pkg="map_annotator" type="pose_names.py" name="pose_names" output="screen"/>
+
+</launch>
